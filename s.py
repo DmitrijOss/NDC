@@ -1,6 +1,5 @@
 import socket
 import threading, Queue
-
 from time import gmtime, strftime
 import time
 
@@ -10,7 +9,7 @@ PORT = 50007
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
 
-
+currentConnections = list()
   
     
 # This is the buffer string
@@ -18,7 +17,8 @@ s.bind((HOST, PORT))
 # into the buffer string to be relayed later
 # to different clients that have connected
 # Each message in the buffer is separated by a colon :
-buffer = ""   
+buffer = "" 
+roomTitle = ""  
 
 # custom say hello command
 def sayHello():
@@ -33,13 +33,24 @@ def parseInput(data, con):
     print str(data)
     
     # Checking for commands 
-    if "<getservertime>" in data:
+    if "/getservertime" in data:
         print "command in data.."
         formatted= strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
         
         con.send(str(formatted))
+    
+    if "/sayHi" in data:
+        con.send(str("Hi there!"))
         
+    if "/getRoomTitle" in data:
+        print "Fetching title of room..."
+        con.send(str(roomTitle))
+    
+    if "/closeServer" in data:
+        s.close()
         
+    if "%USERNAME:" in data:
+        con.send(str("This does nothing for now"))
     
 # we a new thread is started from an incoming connection
 # the manageConnection funnction is used to take the input
@@ -48,21 +59,28 @@ def parseInput(data, con):
     
 def manageConnection(conn, addr):
     global buffer
+    global currentConnections
     print 'Connected by', addr
     
+    currentConnections.append(conn)
     
-    data = conn.recv(1024)
     
-    parseInput(data, conn)# Calling the parser, passing the connection
-    
-    print "rec:" + str(data)
-    buffer += str(data)
-    
-    #conn.send(str(buffer))
+    while 1:    
+        data = conn.recv(1024)
         
-    conn.close()
+        parseInput(data,conn)# Calling the parser
+        
+        print "rec:" + str(data)
+        
+        for singleClient in currentConnections:
+            singleClient.send(str(data))
+       
+            
+    #conn.close()
 
-
+print "Enter name of chatroom:"
+roomTitle = raw_input()
+    
 while 1:
     s.listen(1)
     conn, addr = s.accept()
